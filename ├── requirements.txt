@@ -1,0 +1,11 @@
+import React from 'react';
+
+const ├── requirements = () => {
+  return (
+    <div>
+      <h1>├── requirements Component</h1>
+    </div>
+  );
+};
+
+export default ├── requirements;
