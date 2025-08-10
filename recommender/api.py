@@ -64,6 +64,14 @@ def handle_feedback():
 
     return jsonify({"status": "success", "message": "Feedback received"}), 200
 
+@app.route('/user/<user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    """
+    Deletes all data associated with a user.
+    """
+    deleted_count = engine.delete_user_history(user_id)
+    return jsonify({"status": "success", "message": f"Deleted {deleted_count} score entries for user {user_id}."}), 200
+
 if __name__ == '__main__':
     # Run on a different port to avoid conflict with the main UI app
     app.run(port=5001, debug=True)

@@ -61,8 +61,8 @@ def recommendations():
 
     return render_template('recommendations.html', recommendations=recommended_products)
 
-@app.route('/preferences', methods=['GET', 'POST'])
-def user_preferences():
+@app.route('/my_data', methods=['GET', 'POST'])
+def my_data():
     user_id = "mock_user_123"
 
     if request.method == 'POST':
@@ -74,7 +74,7 @@ def user_preferences():
         }
         preferences_collection.update_one({'user_id': user_id}, {'$set': updated_preferences}, upsert=True)
 
-        # NEW: Re-initialize scores after preferences are updated
+        # Re-initialize scores after preferences are updated
         try:
             init_payload = {'user_id': user_id, 'quiz_items': updated_items}
             requests.post(f"{RECOMMENDER_API_URL}/initialize", json=init_payload)
@@ -87,18 +87,22 @@ def user_preferences():
     if not user_prefs:
         return redirect(url_for('quiz'))
 
-    return render_template('preferences.html', prefs=user_prefs)
+    return render_template('my_data.html', prefs=user_prefs)
 
 @app.route('/disable_personalization', methods=['POST'])
 def disable_personalization():
     user_id = "mock_user_123"
 
-    # This should now also delete the scores in the recommender service.
-    # For simplicity, we'll just delete the local preferences.
-    # A more robust implementation would have a user deletion endpoint on the API.
+    # Delete from the local preferences collection
     preferences_collection.delete_one({'user_id': user_id})
 
-    # We could also call the recommender to delete scores, but let's keep it simple.
+    # NEW: Call the recommender API to delete the user's score history
+    try:
+        requests.delete(f"{RECOMMENDER_API_URL}/user/{user_id}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling recommender API to delete user history: {e}")
+        # Depending on the desired behavior, you might want to inform the user
+        # that part of the deletion failed. For now, we just log it.
 
     return render_template('data_deleted.html')
 

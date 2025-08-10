@@ -86,6 +86,14 @@ class RecommenderEngine:
         print(f"Generated {len(recommended_products)} recommendations for user {user_id}")
         return recommended_products
 
+    def delete_user_history(self, user_id):
+        """
+        Deletes all score history for a given user.
+        """
+        result = self.user_scores.delete_many({'user_id': user_id})
+        print(f"Deleted {result.deleted_count} score entries for user {user_id}")
+        return result.deleted_count
+
 if __name__ == '__main__':
     # Example usage (for testing purposes)
     engine = RecommenderEngine()
