@@ -3,3 +3,5 @@ pymongo
 requests
 opencv-python
 mediapipe
+tweepy
+python-dotenv
