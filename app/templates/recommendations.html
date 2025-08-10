@@ -34,6 +34,7 @@
             <p>Type: {{ product.type }}</p>
             <p>Color: {{ product.color }}</p>
             <div class="card-buttons">
+                <a href="{{ url_for('tryon', item_type=product.type, color=product.color) }}" class="button">Try On</a>
                 <form action="{{ url_for('feedback_proxy') }}" method="post" style="display: inline;">
                     <input type="hidden" name="item_type" value="{{ product.type }}">
                     <input type="hidden" name="feedback_type" value="delete">

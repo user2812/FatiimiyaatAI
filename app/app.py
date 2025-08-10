@@ -1,8 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for
 from pymongo import MongoClient
 import requests # New import
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+
+# Configuration for file uploads
+UPLOAD_FOLDER = 'app/static/uploads'
+RESULT_FOLDER = 'app/static/results'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['RESULT_FOLDER'] = RESULT_FOLDER
+
 
 # This app still needs its own MongoDB connection to manage the raw preferences from the quiz
 client = MongoClient('mongodb://localhost:27017/')
@@ -45,6 +55,53 @@ def quiz():
 
         return redirect(url_for('recommendations'))
     return render_template('quiz.html')
+
+from virtual_tryon.tryon_engine import TryOnEngine
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/tryon', methods=['GET', 'POST'])
+def tryon():
+    item_type = request.args.get('item_type', 'shirt')
+    color = request.args.get('color', 'black')
+
+    if request.method == 'POST':
+        # check if the post request has the file part
+        if 'user_photo' not in request.files:
+            return redirect(request.url)
+        file = request.files['user_photo']
+        if file.filename == '':
+            return redirect(request.url)
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            # Save the uploaded file
+            user_image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(user_image_path)
+
+            # Define clothing and output paths
+            clothing_image_path = f'app/static/clothes/{item_type.lower()}.png'
+            output_filename = f"result_{filename}"
+            output_image_path = os.path.join(app.config['RESULT_FOLDER'], output_filename)
+
+            # Run the try-on engine
+            try:
+                engine = TryOnEngine()
+                engine.apply_tryon(user_image_path, clothing_image_path, output_image_path)
+            except Exception as e:
+                print(f"Error during try-on process: {e}")
+                # Render the page with an error message
+                return render_template('tryon.html', item_type=item_type, color=color, error="Failed to process image.")
+
+            # Render the page again, this time with the result image
+            return render_template('tryon.html',
+                                   item_type=item_type,
+                                   color=color,
+                                   result_image=f'results/{output_filename}')
+
+    # For the GET request, just show the upload page
+    return render_template('tryon.html', item_type=item_type, color=color)
 
 @app.route('/recommendations')
 def recommendations():
@@ -126,6 +183,14 @@ def feedback_proxy():
     except requests.exceptions.RequestException as e:
         print(f"Error sending feedback to recommender API: {e}")
 
+    return redirect(url_for('recommendations'))
+
+@app.route('/add_to_cart', methods=['POST'])
+def add_to_cart():
+    item_type = request.form.get('item_type')
+    color = request.form.get('color')
+    print(f"EVENT: Item added to cart! Type: {item_type}, Color: {color}")
+    # In a real application, you would add this item to the user's session/cart in the database.
     return redirect(url_for('recommendations'))
 
 if __name__ == '__main__':
