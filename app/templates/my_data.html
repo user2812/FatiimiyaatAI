@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Your Preferences</title>
+    <title>Mes Données</title>
 </head>
 <body>
-    <h2>Update Your Preferences</h2>
+    <h2>Gérer mes préférences et données</h2>
     <form method="post">
         <label>Which items do you prefer?</label><br>
         <input type="checkbox" id="skirt" name="items" value="skirt" {% if 'skirt' in prefs.items %}checked{% endif %}>
@@ -31,7 +31,7 @@
     </form>
 
     <hr>
-    <h3>Disable Personalization</h3>
+    <h3>Supprimer mes données</h3>
     <p>This will delete all your saved preferences and cannot be undone.</p>
     <form action="{{ url_for('disable_personalization') }}" method="post">
         <input type="submit" value="Delete My Data" onclick="return confirm('Are you sure you want to delete all your data?');">
