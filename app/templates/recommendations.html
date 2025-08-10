@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Recommendations</title>
+    <style>
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px;
+            width: 200px;
+            display: inline-block;
+            vertical-align: top;
+        }
+        .card img {
+            width: 100%;
+            height: auto;
+        }
+        .card-buttons button {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Here are your recommendations!</h2>
+    <p>Based on your preferences, we think you'll like these:</p>
+
+    <div>
+        {% for product in recommendations %}
+        <div class="card">
+            <img src="{{ product.image_url }}" alt="{{ product.name }}">
+            <h3>{{ product.name }}</h3>
+            <p>Type: {{ product.type }}</p>
+            <p>Color: {{ product.color }}</p>
+            <div class="card-buttons">
+                <form action="{{ url_for('feedback') }}" method="post" style="display: inline;">
+                    <input type="hidden" name="product_name" value="{{ product.name }}">
+                    <input type="hidden" name="feedback_type" value="delete">
+                    <button type="submit">Delete</button>
+                </form>
+                <form action="{{ url_for('feedback') }}" method="post" style="display: inline;">
+                    <input type="hidden" name="product_name" value="{{ product.name }}">
+                    <input type="hidden" name="feedback_type" value="see_more">
+                    <button type="submit">See more</button>
+                </form>
+                <form action="{{ url_for('feedback') }}" method="post" style="display: inline;">
+                    <input type="hidden" name="product_name" value="{{ product.name }}">
+                    <input type="hidden"name="feedback_type" value="less_of_this_type">
+                    <button type="submit">Less of this type</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <br>
+    <a href="{{ url_for('user_preferences') }}">Change my preferences</a>
+</body>
+</html>
