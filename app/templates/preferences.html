@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Preferences</title>
+</head>
+<body>
+    <h2>Update Your Preferences</h2>
+    <form method="post">
+        <label>Which items do you prefer?</label><br>
+        <input type="checkbox" id="skirt" name="items" value="skirt" {% if 'skirt' in prefs.items %}checked{% endif %}>
+        <label for="skirt">Skirts</label><br>
+        <input type="checkbox" id="pants" name="items" value="pants" {% if 'pants' in prefs.items %}checked{% endif %}>
+        <label for="pants">Pants</label><br>
+        <input type="checkbox" id="shirt" name="items" value="shirt" {% if 'shirt' in prefs.items %}checked{% endif %}>
+        <label for="shirt">Shirts</label><br>
+        <input type="checkbox" id="dress" name="items" value="dress" {% if 'dress' in prefs.items %}checked{% endif %}>
+        <label for="dress">Dresses</label><br>
+        <br>
+        <label>What are your favorite colors?</label><br>
+        <input type="radio" id="red" name="color" value="red" {% if prefs.color == 'red' %}checked{% endif %} required>
+        <label for="red">Red</label><br>
+        <input type="radio" id="blue" name="color" value="blue" {% if prefs.color == 'blue' %}checked{% endif %}>
+        <label for="blue">Blue</label><br>
+        <input type="radio" id="green" name="color" value="green" {% if prefs.color == 'green' %}checked{% endif %}>
+        <label for="green">Green</label><br>
+        <input type="radio" id="black" name="color" value="black" {% if prefs.color == 'black' %}checked{% endif %}>
+        <label for="black">Black</label><br>
+        <br>
+        <input type="submit" value="Update Preferences">
+    </form>
+
+    <hr>
+    <h3>Disable Personalization</h3>
+    <p>This will delete all your saved preferences and cannot be undone.</p>
+    <form action="{{ url_for('disable_personalization') }}" method="post">
+        <input type="submit" value="Delete My Data" onclick="return confirm('Are you sure you want to delete all your data?');">
+    </form>
+
+    <br>
+    <a href="{{ url_for('recommendations') }}">Back to recommendations</a>
+</body>
+</html>
