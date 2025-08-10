@@ -1,73 +1,63 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for
 from pymongo import MongoClient
+import requests # New import
 
 app = Flask(__name__)
 
-# MongoDB Configuration
+# This app still needs its own MongoDB connection to manage the raw preferences from the quiz
 client = MongoClient('mongodb://localhost:27017/')
 db = client['fashion_app']
-users = db['users']
-preferences = db['preferences']
+preferences_collection = db['preferences'] # Renamed for clarity
+
+# URL for the recommender API
+RECOMMENDER_API_URL = "http://127.0.0.1:5001"
 
 @app.route('/')
 def index():
-    # Redirect to login for now
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
         # Mock user validation
-        print(f"Login attempt with email: {email}") # For debugging
-        # In a real app, you'd validate the password here
-        # For now, just redirect to the quiz page
         return redirect(url_for('quiz'))
     return render_template('login.html')
 
 @app.route('/quiz', methods=['GET', 'POST'])
 def quiz():
+    user_id = "mock_user_123"
     if request.method == 'POST':
-        # For simplicity, we'll use a hardcoded user_id.
-        # In a real app, you'd get this from the session after login.
-        user_id = "mock_user_123"
-
+        quiz_items = request.form.getlist("items")
         user_preferences = {
             "user_id": user_id,
-            "items": request.form.getlist("items"),
+            "items": quiz_items,
             "color": request.form.get("color")
         }
+        preferences_collection.update_one({'user_id': user_id}, {'$set': user_preferences}, upsert=True)
 
-        # Save to MongoDB
-        # Use update_one with upsert=True to create or update the user's preferences
-        preferences.update_one({'user_id': user_id}, {'$set': user_preferences}, upsert=True)
-
-        print(f"Saved preferences for user {user_id}: {user_preferences}") # For debugging
+        # NEW: Call recommender API to initialize scores
+        try:
+            init_payload = {'user_id': user_id, 'quiz_items': quiz_items}
+            requests.post(f"{RECOMMENDER_API_URL}/initialize", json=init_payload)
+        except requests.exceptions.RequestException as e:
+            print(f"Error calling recommender API: {e}")
+            # Decide how to handle this - maybe show an error page
 
         return redirect(url_for('recommendations'))
     return render_template('quiz.html')
 
 @app.route('/recommendations')
 def recommendations():
-    # For simplicity, we'll use a hardcoded user_id.
     user_id = "mock_user_123"
 
-    user_prefs = preferences.find_one({'user_id': user_id})
-
-    recommended_products = []
-    if user_prefs:
-        # Simple recommendation logic: generate products based on preferences
-        pref_items = user_prefs.get('items', [])
-        pref_color = user_prefs.get('color', 'any')
-
-        for item in pref_items:
-            recommended_products.append({
-                "name": f"{pref_color.capitalize()} {item.capitalize()}",
-                "type": item,
-                "color": pref_color,
-                "image_url": "https://via.placeholder.com/200" # Placeholder image
-            })
+    # NEW: Fetch recommendations from the API
+    try:
+        response = requests.get(f"{RECOMMENDER_API_URL}/recommendations/{user_id}")
+        response.raise_for_status() # Raise an exception for bad status codes
+        recommended_products = response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching recommendations: {e}")
+        recommended_products = [] # Show an empty list on error
 
     return render_template('recommendations.html', recommendations=recommended_products)
 
@@ -76,17 +66,25 @@ def user_preferences():
     user_id = "mock_user_123"
 
     if request.method == 'POST':
+        updated_items = request.form.getlist("items")
         updated_preferences = {
             "user_id": user_id,
-            "items": request.form.getlist("items"),
+            "items": updated_items,
             "color": request.form.get("color")
         }
-        preferences.update_one({'user_id': user_id}, {'$set': updated_preferences}, upsert=True)
+        preferences_collection.update_one({'user_id': user_id}, {'$set': updated_preferences}, upsert=True)
+
+        # NEW: Re-initialize scores after preferences are updated
+        try:
+            init_payload = {'user_id': user_id, 'quiz_items': updated_items}
+            requests.post(f"{RECOMMENDER_API_URL}/initialize", json=init_payload)
+        except requests.exceptions.RequestException as e:
+            print(f"Error calling recommender API: {e}")
+
         return redirect(url_for('recommendations'))
 
-    user_prefs = preferences.find_one({'user_id': user_id})
+    user_prefs = preferences_collection.find_one({'user_id': user_id})
     if not user_prefs:
-        # If user has no prefs yet, redirect to quiz
         return redirect(url_for('quiz'))
 
     return render_template('preferences.html', prefs=user_prefs)
@@ -95,26 +93,36 @@ def user_preferences():
 def disable_personalization():
     user_id = "mock_user_123"
 
-    # Delete the user's preferences from MongoDB
-    result = preferences.delete_one({'user_id': user_id})
+    # This should now also delete the scores in the recommender service.
+    # For simplicity, we'll just delete the local preferences.
+    # A more robust implementation would have a user deletion endpoint on the API.
+    preferences_collection.delete_one({'user_id': user_id})
 
-    if result.deleted_count > 0:
-        print(f"Deleted data for user {user_id}") # For debugging
-    else:
-        print(f"No data found to delete for user {user_id}") # For debugging
+    # We could also call the recommender to delete scores, but let's keep it simple.
 
     return render_template('data_deleted.html')
 
-@app.route('/feedback', methods=['POST'])
-def feedback():
+# NEW: Proxy for feedback to the recommender API
+@app.route('/feedback_proxy', methods=['POST'])
+def feedback_proxy():
+    user_id = "mock_user_123"
+
+    # Data from the form in recommendations.html
+    product_type = request.form.get('item_type')
     feedback_type = request.form.get('feedback_type')
-    product_name = request.form.get('product_name')
 
-    print(f"Received feedback: '{feedback_type}' for product '{product_name}'")
+    # Call the recommender API's feedback endpoint
+    try:
+        feedback_payload = {
+            'user_id': user_id,
+            'item_type': product_type,
+            'feedback_type': feedback_type
+        }
+        requests.post(f"{RECOMMENDER_API_URL}/feedback", json=feedback_payload)
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending feedback to recommender API: {e}")
 
-    # In a real app, you would use this feedback to adjust recommendations.
-    # For now, we just redirect back to the recommendations page.
     return redirect(url_for('recommendations'))
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True) # Runs on default port 5000
