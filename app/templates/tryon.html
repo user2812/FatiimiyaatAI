@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Virtual Try-On</title>
+</head>
+<body>
+    <h1>Virtual Try-On</h1>
+
+    <h2>Item: {{ item_type }} (Color: {{ color }})</h2>
+
+    <p>Upload a photo of yourself (front-facing, neutral pose for best results) to try it on!</p>
+
+    <form method="post" enctype="multipart/form-data">
+        <input type="file" name="user_photo" required>
+        <input type="submit" value="Apply Try-On">
+    </form>
+
+    <hr>
+    <h3>Or use your camera:</h3>
+    <video id="video" width="500" height="375" autoplay></video>
+    <br>
+    <button id="capture-btn">Capture Photo</button>
+    <canvas id="canvas" width="500" height="375" style="display:none;"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const context = canvas.getContext('2d');
+
+        // Access the camera
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+                video.srcObject = stream;
+                video.play();
+            }).catch(function(error) {
+                console.log("Something went wrong with the camera access: ", error);
+                alert("Could not access the camera. Please ensure you have given permission.");
+            });
+        }
+
+        // Capture photo and submit
+        captureBtn.addEventListener('click', function() {
+            // Draw the video frame to the canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert canvas to a blob
+            canvas.toBlob(function(blob) {
+                // Create a FormData object
+                const formData = new FormData();
+                // The backend expects a file named 'user_photo'
+                formData.append('user_photo', blob, 'capture.jpg');
+
+                // Use fetch to post the form data to the current URL
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                }).then(response => {
+                    // When the server responds, it will have processed the image.
+                    // A simple way to show the result is to reload the page.
+                    // The server will then render the template with the result_image.
+                    if(response.ok) {
+                        // The response from a POST redirect will be of type 'opaque'
+                        // if the server does a redirect, so we can't check the status.
+                        // We just reload the page and assume the server handled it.
+                        window.location.reload();
+                    } else {
+                        alert('Upload failed.');
+                    }
+                }).catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred during upload.');
+                });
+            }, 'image/jpeg');
+        });
+    </script>
+
+    {% if result_image %}
+    <hr>
+    <h2>Result:</h2>
+    <img src="{{ url_for('static', filename=result_image) }}" alt="Virtual Try-On Result" style="max-width: 500px;">
+    <br>
+    <form action="{{ url_for('add_to_cart') }}" method="post">
+        <input type="hidden" name="item_type" value="{{ item_type }}">
+        <input type="hidden" name="color" value="{{ color }}">
+        <button type="submit">Add to Cart</button>
+    </form>
+    {% endif %}
+
+</body>
+</html>
